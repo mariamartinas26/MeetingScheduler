@@ -198,9 +198,57 @@ class DatabaseManager:
 
     def __del__(self):
         """
-        Destructor – ensures connection is closed
+        Destructor
         """
         try:
             self.close()
         except Exception:
             pass
+
+    def add_person(self, name, email, phone=None):
+        """
+        Adds a new person to the database
+        return: tuple: (success: bool, message: str)
+        """
+
+        if not self.is_connected:
+            return False, "No database connection"
+
+        name = name.strip()
+        email = email.strip().lower()
+        phone = phone.strip() if phone else None
+
+        #Input validation
+        if len(name) < 2:
+            return False, "Name must be at least 2 characters"
+
+        if "@" not in email or "." not in email:
+            return False, "Invalid email address"
+
+        if len(phone) > 10:
+            return False, "Invalid phone number"
+
+        try:
+            #duplicate emails
+            self.cursor.execute(
+                "SELECT 1 FROM persons WHERE email = %s;",
+                (email,)
+            )
+            if self.cursor.fetchone():
+                return False, "Email already registered"
+
+            # Insert person
+            self.cursor.execute(
+                """
+                INSERT INTO persons (name, email, phone)
+                VALUES (%s, %s, %s);
+                """,
+                (name, email, phone)
+            )
+
+            self.connection.commit()
+            return True, "Person added successfully"
+
+        except Exception as e:
+            self.connection.rollback()
+            return False, f"Database error: {str(e)}"
