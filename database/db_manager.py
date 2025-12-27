@@ -1,6 +1,7 @@
 import psycopg2
 from psycopg2 import Error, OperationalError
 import os
+from datetime import datetime
 
 
 class DatabaseManager:
@@ -24,6 +25,7 @@ class DatabaseManager:
             tuple (bool, str): success flag and message
         """
         try:
+            #if connection already exists
             if self.connection:
                 self.close()
 
@@ -57,8 +59,7 @@ class DatabaseManager:
         """
         Create database tables using schema.sql or fallback SQL
 
-        Returns:
-            tuple (bool, str)
+        Return: tuple (bool, str)
         """
         if not self.is_connected:
             return False, "No active database connection"
@@ -94,8 +95,8 @@ class DatabaseManager:
         self.cursor.execute("""
             CREATE TABLE IF NOT EXISTS persons (
                 person_id SERIAL PRIMARY KEY,
-                name VARCHAR(100) NOT NULL UNIQUE,
-                email VARCHAR(100),
+                name VARCHAR(100) NOT NULL,
+                email VARCHAR(100) UNIQUE NOT NULL,
                 phone VARCHAR(20),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -126,8 +127,7 @@ class DatabaseManager:
         """
         Verify existence of required tables
 
-        Returns:
-            tuple (bool, dict | str)
+        Returns: tuple (bool, dict | str)
         """
         if not self.is_connected:
             return False, "No database connection"
@@ -252,3 +252,103 @@ class DatabaseManager:
         except Exception as e:
             self.connection.rollback()
             return False, f"Database error: {str(e)}"
+
+    def get_all_persons(self):
+        """
+        Return all persons in the database (for selecting them)
+        """
+        if not self.is_connected:
+            return False, "No database connection"
+
+        self.cursor.execute(
+            "SELECT person_id,name FROM persons ORDER BY name;"
+        )
+
+        return self.cursor.fetchall()
+
+    def check_conflicts(self,participant_ids,start_time,end_time):
+        """
+        Checks for overlapping meetings between participants
+        """
+        if not self.is_connected:
+            return False, "No database connection"
+
+        if not participant_ids:
+            return True,[]
+
+        query="""
+            SELECT DISTINCT p.person_id,p.name FROM meetings m 
+            JOIN meeting_participants mp ON m.meeting_id = mp.meeting_id
+            JOIN persons p ON mp.person_id = p.person_id
+            WHERE mp.person_id=ANY(%s::int[])
+            AND (%s<m.end_time AND %s>m.start_time);
+        """
+
+        self.cursor.execute(query,(participant_ids,start_time,end_time))
+        return self.cursor.fetchall()
+
+
+    def add_meeting(self,title,description, start_time,end_time,location,participant_ids):
+        """
+        Creates new meeting
+        """
+        if not self.is_connected:
+            return False, "No database connection"
+
+        title = title.strip()
+        description = description.strip()
+        location = location.strip()
+
+        if not title:
+            return False, "Title is required"
+
+        if not participant_ids:
+            return False, "At least one participant is required"
+
+        if start_time < datetime.now():
+            return False, "Meeting cannot be scheduled in the past"
+
+        if end_time<=start_time:
+            return False,"End time must be after start time"
+
+        try:
+            #check conflicts
+            conflicts=self.check_conflicts(
+                participant_ids,
+                start_time,
+                end_time
+            )
+
+            if conflicts:
+               unique_names={person_name for person_id,person_name in conflicts}
+               names=", ".join(sorted(unique_names))
+               return False, f"Schedule conflict for: {names}"
+
+            #Insert meeting
+            self.cursor.execute(
+                """
+                INSERT INTO meetings (title, description, start_time, end_time, location)
+                    VALUES (%s,%s,%s,%s,%s) RETURNING meeting_id;
+                """, (title, description, start_time, end_time, location)
+            )
+
+            meeting_id=self.cursor.fetchone()[0]
+
+            #insert participants
+            for person_id in participant_ids:
+                self.cursor.execute(
+                    """
+                    INSERT INTO meeting_participants (meeting_id, person_id)
+                        VALUES (%s, %s);
+                    """, (meeting_id, person_id)
+                )
+
+            self.connection.commit()
+            return True, "Meeting scheduled successfully"
+
+        except Exception as e:
+            self.connection.rollback()
+            return False, f"Database error: {str(e)}"
+
+
+

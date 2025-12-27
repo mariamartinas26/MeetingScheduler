@@ -5,6 +5,7 @@ from database import DatabaseManager
 from config.db_config import DEFAULT_CONFIG
 from gui.menu_page import MenuPage
 from gui.person_form import PersonForm
+from gui.meeting_form import MeetingForm
 
 
 def main():
@@ -25,25 +26,35 @@ def main():
 
     menu_page = None
     person_form = None
+    meeting_form = None
 
     def show_menu():
         person_form.hide()
+        meeting_form.hide()
         menu_page.show()
 
     def show_person():
         menu_page.hide()
+        meeting_form.hide()
         person_form.show()
+
+    def show_meeting():
+        menu_page.hide()
+        person_form.hide()
+        meeting_form.show()
 
     #pages
     person_form = PersonForm(container, db, show_menu)
+    meeting_form= MeetingForm(container, db, show_menu)
+
     menu_page = MenuPage(
         container,
         show_person=show_person,
+        show_meeting=show_meeting,
         exit_app=root.destroy
     )
 
     show_menu()
-
     root.mainloop()
 
 

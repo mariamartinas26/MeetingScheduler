@@ -1,10 +1,10 @@
 import tkinter as tk
 from tkinter import messagebox
-
+from fonts import get_poppins
 
 class PersonForm:
     """
-    GUI form for adding a new person into the database
+    Form for adding a new person into the database
     """
 
     def __init__(self, parent, db_manager,show_menu):
@@ -12,27 +12,30 @@ class PersonForm:
         self.show_menu = show_menu
         self.frame = tk.Frame(parent)
 
+        #back to menu button
         tk.Button(
             self.frame,
-            text="← Back to Menu",
+            text="Back",
+            font=get_poppins(10),
             command=self.show_menu
         ).pack(anchor="w", pady=5)
 
+        #add new person button
         tk.Label(
             self.frame,
             text="Add New Person",
             font=("Poppins", 14, "bold")
         ).pack(pady=10)
 
-        tk.Label(self.frame, text="Name").pack(anchor="w")
+        tk.Label(self.frame, text="Name",font=get_poppins(9)).pack(anchor="w")
         self.name_entry = tk.Entry(self.frame, width=40)
         self.name_entry.pack(pady=5)
 
-        tk.Label(self.frame, text="Email").pack(anchor="w")
+        tk.Label(self.frame, text="Email",font=get_poppins(9)).pack(anchor="w")
         self.email_entry = tk.Entry(self.frame, width=40)
         self.email_entry.pack(pady=5)
 
-        tk.Label(self.frame, text="Phone").pack(anchor="w")
+        tk.Label(self.frame, text="Phone",font=get_poppins(9)).pack(anchor="w")
         self.phone_entry = tk.Entry(self.frame, width=40)
         self.phone_entry.pack(pady=5)
 
@@ -42,6 +45,7 @@ class PersonForm:
             command=self.submit,
             bg="#4CAF50",
             fg="white",
+            font=get_poppins(10),
             width=20
         ).pack(pady=15)
 
