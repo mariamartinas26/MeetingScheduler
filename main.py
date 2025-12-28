@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
-
+from datetime import datetime
 from database import DatabaseManager
 from config.db_config import DEFAULT_CONFIG
 from gui.menu_page import MenuPage
@@ -16,6 +16,18 @@ def main():
     if not success:
         messagebox.showerror("Database Error", message)
         return
+
+    #test func get meetings
+    start = datetime(2024, 12, 16, 9, 0)
+    end = datetime(2026, 2, 1, 18, 0)
+
+    meetings = db.get_meetings_in_interval(start, end)
+
+    print("Meetings found:")
+    for m in meetings:
+        print(m)
+
+    return
 
     root = tk.Tk()
     root.title("Meeting Scheduler")

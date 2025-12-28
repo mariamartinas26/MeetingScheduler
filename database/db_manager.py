@@ -351,4 +351,20 @@ class DatabaseManager:
             return False, f"Database error: {str(e)}"
 
 
+    def get_meetings_in_interval(self, start_time, end_time):
+        """
+        Return all meetings in the interval
+        """
 
+        if not self.is_connected:
+            return False, "No database connection"
+
+        query="""
+            SELECT
+                meeting_id,title,start_time,end_time,location FROM meetings
+            WHERE start_time >= %s AND end_time <= %s ORDER BY start_time;
+        """
+
+        self.cursor.execute(query,(start_time,end_time))
+        results= self.cursor.fetchall()
+        return results
