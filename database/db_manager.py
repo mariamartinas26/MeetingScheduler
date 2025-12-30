@@ -361,8 +361,10 @@ class DatabaseManager:
 
         query="""
             SELECT
-                meeting_id,title,start_time,end_time,location FROM meetings
-            WHERE start_time >= %s AND end_time <= %s ORDER BY start_time;
+                m.title,m.description,m.start_time,m.end_time,m.location, STRING_AGG(p.name,', ') AS participants
+            FROM meetings m JOIN meeting_participants mp ON m.meeting_id = mp.meeting_id
+                JOIN persons p ON mp.person_id = p.person_id
+            WHERE start_time >= %s AND end_time <= %s GROUP BY m.meeting_id ORDER BY start_time;
         """
 
         self.cursor.execute(query,(start_time,end_time))

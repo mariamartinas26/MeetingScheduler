@@ -6,6 +6,7 @@ from config.db_config import DEFAULT_CONFIG
 from gui.menu_page import MenuPage
 from gui.person_form import PersonForm
 from gui.meeting_form import MeetingForm
+from gui.view_meetings_page import ViewMeetingsPage
 
 
 def main():
@@ -17,18 +18,6 @@ def main():
         messagebox.showerror("Database Error", message)
         return
 
-    #test func get meetings
-    start = datetime(2024, 12, 16, 9, 0)
-    end = datetime(2026, 2, 1, 18, 0)
-
-    meetings = db.get_meetings_in_interval(start, end)
-
-    print("Meetings found:")
-    for m in meetings:
-        print(m)
-
-    return
-
     root = tk.Tk()
     root.title("Meeting Scheduler")
     root.geometry("500x400")
@@ -39,30 +28,45 @@ def main():
     menu_page = None
     person_form = None
     meeting_form = None
+    view_meetings_page = None
+
+    #function to hide all pages
+    def hide_all_pages():
+        if menu_page:
+            menu_page.hide()
+        if person_form:
+            person_form.hide()
+        if meeting_form:
+            meeting_form.hide()
+        if view_meetings_page:
+            view_meetings_page.hide()
 
     def show_menu():
-        person_form.hide()
-        meeting_form.hide()
+        hide_all_pages()
         menu_page.show()
 
     def show_person():
-        menu_page.hide()
-        meeting_form.hide()
+        hide_all_pages()
         person_form.show()
 
     def show_meeting():
-        menu_page.hide()
-        person_form.hide()
+        hide_all_pages()
         meeting_form.show()
+
+    def show_view_meetings_interval():
+        hide_all_pages()
+        view_meetings_page.show()
 
     #pages
     person_form = PersonForm(container, db, show_menu)
     meeting_form= MeetingForm(container, db, show_menu)
+    view_meetings_page = ViewMeetingsPage(container, db, show_menu)
 
     menu_page = MenuPage(
         container,
         show_person=show_person,
         show_meeting=show_meeting,
+        show_view_meetings_interval=show_view_meetings_interval,
         exit_app=root.destroy
     )
 
