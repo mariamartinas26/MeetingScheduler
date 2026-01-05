@@ -448,7 +448,7 @@ class DatabaseManager:
             return True, "Exported meetings successfully"
 
         except Exception as e:
-            return False,"Export failed"
+            return False, f"Export failed: {str(e)}"
 
 
     #IMPORT MEETINGS PART
@@ -578,6 +578,10 @@ class DatabaseManager:
 
 
                 participant_names=self.extract_participants(description)
+                #added validation
+                if not participant_names:
+                    return False,f"Event {title} has not participants. Add participants"
+
                 new_description=self.remove_participants_description(description)
                 name_to_id =self.get_person_id_by_name(participant_names)
                 participant_ids=[]
@@ -586,6 +590,11 @@ class DatabaseManager:
                     person_id=name_to_id.get(name.lower())
                     if person_id:
                         participant_ids.append(person_id)
+
+                #added validation
+                if not participant_ids:
+                    return False,f"Participants for {title} do not exist in database"
+
 
                 success, message = self.add_meeting(
                     title=title,
