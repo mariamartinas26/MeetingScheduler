@@ -2,6 +2,48 @@ import psycopg2
 from psycopg2 import Error, OperationalError
 import os
 from datetime import datetime
+from icalendar import Calendar,Event
+import uuid
+
+
+def extract_participants(description):
+    """
+    Extract participants from description
+    Returns: list[str]
+    """
+
+    if not description:
+        return []
+
+    #split description into lines
+    lines=str(description).splitlines()
+
+    participants_line=""
+    for line in lines:
+        line_stripped=line.strip()
+        if line_stripped.lower().startswith("participants:"):
+            participants_line=line_stripped
+            break
+
+    if not participants_line:
+        return []
+
+    #split by :
+    parts=participants_line.split(":",1)
+    if len(parts)<2:
+        return []
+
+    names_part=parts[1]
+
+    #split names by ,
+    participants=[]
+    for name in names_part.split(","):
+        name=name.strip()
+        if name:
+            participants.append(name)
+
+
+    return participants
 
 
 class DatabaseManager:
@@ -370,3 +412,197 @@ class DatabaseManager:
         self.cursor.execute(query,(start_time,end_time))
         results= self.cursor.fetchall()
         return results
+
+
+    #EXPORT MEETINGS PART
+    def export_meetings_to_file(self,meetings,file_path):
+        """
+        Export meetings to ics file
+        """
+
+        if not meetings:
+            return False, "No meetings"
+
+        try:
+            #create calendar
+            cal=Calendar()
+            cal.add("prodid", "-//Meeting Scheduler//EN")
+            cal.add("version", "2.0")
+
+            for title,description,start_time,end_time,location,participants in meetings:
+                event = Event()
+                event.add("uid", f"{uuid.uuid4()}@meeting-scheduler")
+                event.add("summary", title)
+                event.add("description", f"{description}\nParticipants: {participants}")
+                event.add("location", location)
+                event.add("dtstart", start_time)
+                event.add("dtend", end_time)
+                event.add("dtstamp", datetime.utcnow())
+
+                cal.add_component(event)
+
+            #write calendar to file
+            with open(file_path, "wb") as f:
+                f.write(cal.to_ical())
+
+            return True, "Exported meetings successfully"
+
+        except Exception as e:
+            return False,"Export failed"
+
+
+    #IMPORT MEETINGS PART
+    def get_person_id_by_name(self,names):
+        """
+        return a dict {name: person_id} for the names list
+        """
+
+        if not self.is_connected:
+            return {}
+
+        new_names=[]
+        for name in names:
+            stripped=name.strip()
+            if stripped:
+                new_names.append(stripped)
+
+        if not new_names:
+            return {}
+
+        #convert names to lowercase
+        lower_names=[]
+        for name in new_names:
+            lower_names.append(name.lower())
+
+        #query
+        self.cursor.execute(
+            """
+            SELECT person_id,name FROM persons WHERE LOWER(name)=ANY(%s)
+            """, (lower_names,)
+        )
+
+        rows=self.cursor.fetchall()
+
+        result={}
+        for person_id,name in rows:
+            result[name.lower()]=person_id
+
+        return result
+
+    def extract_participants(self, description):
+        """
+        Extract participants from description
+        returns: list[str]
+        """
+        if not description:
+            return []
+
+        text = str(description)
+
+        lines = text.splitlines()
+
+        for line in lines:
+            line_stripped = line.strip()
+            if line_stripped.lower().startswith("participants:"):
+                parts = line_stripped.split(":", 1)
+                if len(parts) < 2:
+                    return []
+
+                names_part = parts[1]
+
+                participants = []
+                for name in names_part.split(","):
+                    name = name.strip()
+                    if name:
+                        participants.append(name)
+
+                return participants
+
+        return []
+
+    def remove_participants_description(self,description):
+        """
+        Remove participants from description when importing
+        """
+        if not description:
+            return ""
+
+        lines=str(description).splitlines()
+        kept=[]
+
+        for line in lines:
+            stripped=line.strip()
+            if stripped.lower().startswith("participants:"):
+                continue #skip line
+            kept.append(stripped)
+
+        return "\n".join(kept).strip()
+
+    def import_meetings_from_file(self,file_path):
+        """
+        Import meetings from ics file and insert in db
+        """
+
+        if not self.is_connected:
+            return False, "No database connection"
+
+
+        try:
+            with open(file_path, "rb") as f:
+                cal = Calendar.from_ical(f.read())
+
+            imported = 0
+            for component in cal.walk():
+                if component.name != "VEVENT":
+                    continue
+
+                title =str(component.get("summary", "")).strip()
+                description =str(component.get("description", "")).strip()
+                location =str(component.get("location", "")).strip()
+
+                dtstart_obj=component.get("dtstart")
+                dtend_obj=component.get("dtend")
+                if not dtstart_obj or not dtend_obj:
+                    continue
+
+                start_dt=dtstart_obj.dt
+                end_dt=dtend_obj.dt
+
+                if start_dt.tzinfo is not None:
+                    start_dt=start_dt.replace(tzinfo=None)
+                if end_dt.tzinfo is not None:
+                    end_dt=end_dt.replace(tzinfo=None)
+
+                if end_dt <= start_dt:
+                    return False, f"Invalid time interval for {title}"
+
+
+                participant_names=self.extract_participants(description)
+                new_description=self.remove_participants_description(description)
+                name_to_id =self.get_person_id_by_name(participant_names)
+                participant_ids=[]
+
+                for name in participant_names:
+                    person_id=name_to_id.get(name.lower())
+                    if person_id:
+                        participant_ids.append(person_id)
+
+                success, message = self.add_meeting(
+                    title=title,
+                    description=new_description,
+                    start_time=start_dt,
+                    end_time=end_dt,
+                    location=location,
+                    participant_ids=participant_ids
+                )
+
+                if not success:
+                    return False, f"Import stopped at {title}: {message}"
+
+                imported+= 1
+
+            return True, f"Imported {imported} meetings successfully"
+
+        except Exception as e:
+            self.connection.rollback()
+            return False, f"Import failed: {str(e)}"

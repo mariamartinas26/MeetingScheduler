@@ -3,7 +3,6 @@ from tkinter import messagebox, ttk
 from datetime import datetime
 from fonts import get_poppins
 import uuid
-import os
 from icalendar import Calendar,Event
 from tkinter import filedialog
 
@@ -86,6 +85,15 @@ class ViewMeetingsPage:
             self.frame,
             text="Export meetings",
             command=self.export_meetings,
+            font=self.font_regular,
+            width=25
+        ).pack(pady=5)
+
+        #import meetings button
+        tk.Button(
+            self.frame,
+            text="Import meetings",
+            command=self.import_meetings,
             font=self.font_regular,
             width=25
         ).pack(pady=5)
@@ -189,52 +197,44 @@ class ViewMeetingsPage:
         if not file_path:
             return  #stopped saving
 
-        try:
-            #create calendar
-            cal=Calendar()
-            cal.add("prodid", "-//Meeting Scheduler//EN")
-            cal.add("version", "2.0")
+        meetings_to_export=[]
+        for item_id in selected_items:
+            values=self.tree.item(item_id, "values")
 
-            for item_id in selected_items:
-                values = self.tree.item(item_id, "values")
+            title=values[0]
+            description = values[1]
+            start_dt = datetime.strptime(values[2], "%d-%m-%Y %H:%M")
+            end_dt = datetime.strptime(values[3], "%d-%m-%Y %H:%M")
+            location = values[4]
+            participants = values[5]
 
-                title = values[0]
-                description = values[1]
-                start_str = values[2]
-                end_str = values[3]
-                location = values[4]
-                participants = values[5]
+            meetings_to_export.append((title, description, start_dt, end_dt, location, participants))
 
-                start_dt = datetime.strptime(start_str, "%d-%m-%Y %H:%M")
-                end_dt = datetime.strptime(end_str, "%d-%m-%Y %H:%M")
+        success,message=self.db.export_meetings_to_file(meetings_to_export,file_path)
 
-                event = Event()
-                event.add("uid", f"{uuid.uuid4()}@meeting-scheduler")
-                event.add("summary", title)
-                event.add("description", f"{description}\nParticipants: {participants}")
-                event.add("location", location)
-                event.add("dtstart", start_dt)
-                event.add("dtend", end_dt)
-                event.add("dtstamp", datetime.utcnow())
+        if success:
+            messagebox.showinfo("Success", message)
+        else:
+            messagebox.showerror("Error", message)
 
-                cal.add_component(event)
+    def import_meetings(self):
+        """
+        import meetings from ics file
+        """
+        file_path = filedialog.askopenfilename(
+            title="Import meetings",
+            filetypes=[("iCalendar files", "*.ics")]
+        )
 
-            #write calendar to file
-            with open(file_path, "wb") as f:
-                f.write(cal.to_ical())
+        if not file_path:
+            return #stopped saving
 
-            messagebox.showinfo(
-                "Success",
-                f"Exported {len(selected_items)} meetings successfully"
-            )
+        success, message = self.db.import_meetings_from_file(file_path)
 
-        except ValueError:
-            messagebox.showerror(
-                "Error",
-                "Invalid date format. Expected DD-MM-YYYY HH:MM"
-            )
-        except Exception as e:
-            messagebox.showerror(
-                "Error",
-                f"Export failed: {e}"
-            )
+        if success:
+            messagebox.showinfo("Success", message)
+        else:
+            messagebox.showerror("Import error", message)
+
+
+
