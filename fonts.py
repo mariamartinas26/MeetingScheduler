@@ -17,3 +17,6 @@ def get_poppins(size=12, weight="normal"):
 
     #fallback
     return ("Arial", size, weight)
+
+FONT_TITLE=get_poppins(size=16,weight="bold")
+FONT_NORMAL=get_poppins(size=10)

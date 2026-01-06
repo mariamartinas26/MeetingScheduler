@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
-from fonts import get_poppins
+from fonts import FONT_TITLE,FONT_NORMAL
 
 class PersonForm:
     """
@@ -16,7 +16,7 @@ class PersonForm:
         tk.Button(
             self.frame,
             text="Back",
-            font=get_poppins(10),
+            font=FONT_NORMAL,
             command=self.show_menu
         ).pack(anchor="w", pady=5)
 
@@ -24,19 +24,19 @@ class PersonForm:
         tk.Label(
             self.frame,
             text="Add New Person",
-            font=("Poppins", 14, "bold")
+            font=FONT_TITLE,
         ).pack(pady=10)
 
-        tk.Label(self.frame, text="Name",font=get_poppins(9)).pack(anchor="w")
-        self.name_entry = tk.Entry(self.frame, width=40)
+        tk.Label(self.frame, text="Name",font=FONT_NORMAL).pack(anchor="w")
+        self.name_entry = tk.Entry(self.frame, width=40, font=FONT_NORMAL)
         self.name_entry.pack(pady=5)
 
-        tk.Label(self.frame, text="Email",font=get_poppins(9)).pack(anchor="w")
-        self.email_entry = tk.Entry(self.frame, width=40)
+        tk.Label(self.frame, text="Email",font=FONT_NORMAL).pack(anchor="w")
+        self.email_entry = tk.Entry(self.frame, width=40, font=FONT_NORMAL)
         self.email_entry.pack(pady=5)
 
-        tk.Label(self.frame, text="Phone",font=get_poppins(9)).pack(anchor="w")
-        self.phone_entry = tk.Entry(self.frame, width=40)
+        tk.Label(self.frame, text="Phone",font=FONT_NORMAL).pack(anchor="w")
+        self.phone_entry = tk.Entry(self.frame, width=40, font=FONT_NORMAL)
         self.phone_entry.pack(pady=5)
 
         tk.Button(
@@ -45,7 +45,7 @@ class PersonForm:
             command=self.submit,
             bg="#4CAF50",
             fg="white",
-            font=get_poppins(10),
+            font=FONT_NORMAL,
             width=20
         ).pack(pady=15)
 

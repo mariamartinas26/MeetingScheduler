@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 from datetime import datetime
+from fonts import FONT_TITLE, FONT_NORMAL
 
 class MeetingForm:
     """
@@ -14,34 +15,40 @@ class MeetingForm:
 
         tk.Button(
             self.frame,
-            text="Back to Menu",
-            command=self.show_menu
+            text="Back",
+            command=self.show_menu,
+            font=FONT_NORMAL,
         ).pack(anchor="w",pady=5)
 
         tk.Label(
             self.frame,
             text="Schedule Meeting",
-            font=("Poppins", 14, "bold")
+            font=FONT_TITLE,
         ).pack(pady=10)
 
-        self._entry("Title")
-        self.title_entry=self.last_entry
+        tk.Label(self.frame, text="Title", font=FONT_NORMAL).pack(anchor="w")
+        self.title_entry = tk.Entry(self.frame, width=40, font=FONT_NORMAL)
+        self.title_entry.pack(pady=5)
 
-        self._entry("Description")
-        self.desc_entry = self.last_entry
+        tk.Label(self.frame, text="Description", font=FONT_NORMAL).pack(anchor="w")
+        self.desc_entry = tk.Entry(self.frame, width=40, font=FONT_NORMAL)
+        self.desc_entry.pack(pady=5)
 
-        self._entry("Location")
-        self.location_entry = self.last_entry
+        tk.Label(self.frame, text="Location", font=FONT_NORMAL).pack(anchor="w")
+        self.location_entry = tk.Entry(self.frame, width=40, font=FONT_NORMAL)
+        self.location_entry.pack(pady=5)
 
-        self._entry("Start (DD-MM-YYYY HH:MM)")
-        self.start_entry = self.last_entry
+        tk.Label(self.frame, text="Start (DD-MM-YYYY HH:MM)", font=FONT_NORMAL).pack(anchor="w")
+        self.start_entry = tk.Entry(self.frame, width=40, font=FONT_NORMAL)
+        self.start_entry.pack(pady=5)
 
-        self._entry("End (DD-MM-YYYY HH:MM)")
-        self.end_entry = self.last_entry
+        tk.Label(self.frame, text="End (DD-MM-YYYY HH:MM)", font=FONT_NORMAL).pack(anchor="w")
+        self.end_entry = tk.Entry(self.frame, width=40, font=FONT_NORMAL)
+        self.end_entry.pack(pady=5)
 
-        tk.Label(self.frame, text="Participants").pack(anchor="w")
-        self.participants = tk.Listbox(self.frame, selectmode=tk.MULTIPLE, width=40)
-        self.participants.pack()
+        tk.Label(self.frame, text="Participants", font=FONT_NORMAL).pack(anchor="w")
+        self.participants = tk.Listbox(self.frame, selectmode=tk.MULTIPLE, width=40, height=6,font=FONT_NORMAL)
+        self.participants.pack(pady=5)
 
         self.person_map = {}
         for pid, name in self.db.get_all_persons():
@@ -54,14 +61,10 @@ class MeetingForm:
             command=self.submit,
             bg="#2196F3",
             fg="white",
+            font=FONT_NORMAL,
             width=20
         ).pack(pady=15)
 
-    def _entry(self, label):
-        tk.Label(self.frame, text=label).pack(anchor="w")
-        e = tk.Entry(self.frame, width=40)
-        e.pack(pady=3)
-        self.last_entry = e
 
     def show(self):
         """show form"""

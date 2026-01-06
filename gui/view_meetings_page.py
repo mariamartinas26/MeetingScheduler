@@ -1,10 +1,8 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
 from datetime import datetime
-from fonts import get_poppins
-import uuid
-from icalendar import Calendar,Event
 from tkinter import filedialog
+from fonts import FONT_TITLE, FONT_NORMAL
 
 
 class ViewMeetingsPage:
@@ -16,58 +14,56 @@ class ViewMeetingsPage:
         self.db=db
         self.show_menu=show_menu
         self.frame=tk.Frame(parent)
-        self.font_regular = get_poppins(size=11)
-        self.font_bold = get_poppins(size=13, weight="bold")
 
         style = ttk.Style()
         style.configure(
             "Poppins.Treeview",
-            font=self.font_regular,
+            font=FONT_NORMAL,
             rowheight=26
         )
 
         style.configure(
             "Poppins.Treeview.Heading",
-            font=self.font_bold
+            font=FONT_NORMAL
         )
 
         tk.Button(
             self.frame,
-            text="Back to Menu",
-            font=self.font_regular,
+            text="Back",
+            font=FONT_NORMAL,
             command=self.show_menu
         ).pack(anchor="w",pady=5)
 
         tk.Label(
             self.frame,
             text="View Meetings",
-            font=self.font_bold
+            font=FONT_TITLE
         ).pack(pady=10)
 
         #interval
         tk.Label(
             self.frame,
             text="Start (DD-MM-YYYY HH:MM)",
-            font=self.font_regular
+            font=FONT_NORMAL
         ).pack(anchor="w")
 
         self.start_entry = tk.Entry(
             self.frame,
             width=40,
-            font=self.font_regular
+            font=FONT_NORMAL
         )
         self.start_entry.pack(pady=3)
 
         tk.Label(
             self.frame,
             text="End (DD-MM-YYYY HH:MM)",
-            font=self.font_regular
+            font=FONT_NORMAL
         ).pack(anchor="w")
 
         self.end_entry = tk.Entry(
             self.frame,
             width=40,
-            font=self.font_regular
+            font=FONT_NORMAL
         )
         self.end_entry.pack(pady=3)
 
@@ -76,7 +72,7 @@ class ViewMeetingsPage:
             self.frame,
             text="Search",
             command=self.search,
-            font=self.font_regular,
+            font=FONT_NORMAL,
             width=20
         ).pack(pady=10)
 
@@ -85,7 +81,7 @@ class ViewMeetingsPage:
             self.frame,
             text="Export meetings",
             command=self.export_meetings,
-            font=self.font_regular,
+            font=FONT_NORMAL,
             width=25
         ).pack(pady=5)
 
@@ -94,7 +90,7 @@ class ViewMeetingsPage:
             self.frame,
             text="Import meetings",
             command=self.import_meetings,
-            font=self.font_regular,
+            font=FONT_NORMAL,
             width=25
         ).pack(pady=5)
 

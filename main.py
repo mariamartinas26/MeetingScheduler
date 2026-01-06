@@ -20,7 +20,7 @@ def main():
 
     root = tk.Tk()
     root.title("Meeting Scheduler")
-    root.geometry("500x400")
+    root.geometry("500x700")
 
     container = tk.Frame(root)
     container.pack(fill="both", expand=True)
