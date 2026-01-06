@@ -1,7 +1,9 @@
 import tkinter as tk
-from tkinter import messagebox
 from datetime import datetime
-from fonts import FONT_TITLE, FONT_NORMAL
+from tkinter import messagebox
+
+from fonts import FONT_NORMAL, FONT_TITLE
+
 
 class MeetingForm:
     """

@@ -1,8 +1,8 @@
 import tkinter as tk
-from tkinter import messagebox, ttk
 from datetime import datetime
-from tkinter import filedialog
-from fonts import FONT_TITLE, FONT_NORMAL
+from tkinter import filedialog, messagebox, ttk
+
+from fonts import FONT_NORMAL, FONT_TITLE
 
 
 class ViewMeetingsPage:

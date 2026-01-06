@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import messagebox
-from fonts import FONT_TITLE,FONT_NORMAL
+
+from fonts import FONT_NORMAL, FONT_TITLE
+
 
 class PersonForm:
     """

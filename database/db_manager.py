@@ -1,9 +1,10 @@
-import psycopg2
-from psycopg2 import Error, OperationalError
 import os
-from datetime import datetime
-from icalendar import Calendar,Event
 import uuid
+from datetime import datetime
+
+import psycopg2
+from icalendar import Calendar, Event
+from psycopg2 import Error, OperationalError
 
 
 def extract_participants(description):

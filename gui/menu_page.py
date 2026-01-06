@@ -1,5 +1,7 @@
 import tkinter as tk
-from fonts import FONT_TITLE,FONT_NORMAL
+
+from fonts import FONT_NORMAL, FONT_TITLE
+
 
 class MenuPage:
     """
