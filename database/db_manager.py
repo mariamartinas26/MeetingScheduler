@@ -7,49 +7,10 @@ from icalendar import Calendar, Event
 from psycopg2 import Error, OperationalError
 
 
-def extract_participants(description):
-    """
-    Extract participants from description
-    Returns: list[str]
-    """
-
-    if not description:
-        return []
-
-    #split description into lines
-    lines=str(description).splitlines()
-
-    participants_line=""
-    for line in lines:
-        line_stripped=line.strip()
-        if line_stripped.lower().startswith("participants:"):
-            participants_line=line_stripped
-            break
-
-    if not participants_line:
-        return []
-
-    #split by :
-    parts=participants_line.split(":",1)
-    if len(parts)<2:
-        return []
-
-    names_part=parts[1]
-
-    #split names by ,
-    participants=[]
-    for name in names_part.split(","):
-        name=name.strip()
-        if name:
-            participants.append(name)
-
-
-    return participants
-
-
 class DatabaseManager:
     """
     Manages database connection and schema setup
+    Handles import/export of meetings
     """
 
     def __init__(self):
@@ -257,19 +218,20 @@ class DatabaseManager:
         if not self.is_connected:
             return False, "No database connection"
 
-        name = name.strip()
-        email = email.strip().lower()
-        phone = phone.strip() if phone else None
+        ok,response=self.validate_name(name)
+        if not ok:
+            return False, response
+        name=response
 
-        #Input validation
-        if len(name) < 2:
-            return False, "Name must be at least 2 characters"
+        ok, response = self.validate_email(email)
+        if not ok:
+            return False, response
+        email=response
 
-        if "@" not in email or "." not in email:
-            return False, "Invalid email address"
-
-        if len(phone) > 10:
-            return False, "Invalid phone number"
+        ok, response = self.validate_phone(phone)
+        if not ok:
+            return False, response
+        phone=response
 
         try:
             #duplicate emails
@@ -302,11 +264,9 @@ class DatabaseManager:
         """
         if not self.is_connected:
             return False, "No database connection"
-
         self.cursor.execute(
-            "SELECT person_id,name FROM persons ORDER BY name;"
+                "SELECT person_id,name FROM persons ORDER BY name;"
         )
-
         return self.cursor.fetchall()
 
     def check_conflicts(self,participant_ids,start_time,end_time):
@@ -314,21 +274,31 @@ class DatabaseManager:
         Checks for overlapping meetings between participants
         """
         if not self.is_connected:
-            return False, "No database connection"
+            return False,[], "No database connection"
+
+        if end_time<=start_time:
+            return False,[],"End time must be after start time"
 
         if not participant_ids:
-            return True,[]
+            return True,[],""
 
-        query="""
-            SELECT DISTINCT p.person_id,p.name FROM meetings m 
-            JOIN meeting_participants mp ON m.meeting_id = mp.meeting_id
-            JOIN persons p ON mp.person_id = p.person_id
-            WHERE mp.person_id=ANY(%s::int[])
-            AND (%s<m.end_time AND %s>m.start_time);
-        """
+        try:
+            query="""
+                SELECT DISTINCT p.person_id,
+                                p.name FROM meetings m 
+                JOIN meeting_participants mp ON m.meeting_id = mp.meeting_id
+                JOIN persons p ON mp.person_id = p.person_id
+                WHERE mp.person_id=ANY(%s::int[])
+                AND (%s<m.end_time AND %s>m.start_time);
+            """
 
-        self.cursor.execute(query,(participant_ids,start_time,end_time))
-        return self.cursor.fetchall()
+            self.cursor.execute(query,(participant_ids,start_time,end_time))
+            conflicts= self.cursor.fetchall()
+            return True, conflicts, ""
+        except Error as e:
+            return False,[],f"Database error: {e}"
+        except Exception as e:
+            return False,[],f"Unexpected error: {e}"
 
 
     def add_meeting(self,title,description, start_time,end_time,location,participant_ids):
@@ -338,29 +308,29 @@ class DatabaseManager:
         if not self.is_connected:
             return False, "No database connection"
 
-        title = title.strip()
-        description = description.strip()
-        location = location.strip()
+        ok,title,msg=self.clean_str(title,"Title",allow_empty=False,max_len=100)
+        if not ok:
+            return False, msg
 
-        if not title:
-            return False, "Title is required"
+        ok,description,msg=self.clean_str(description,"Description",allow_empty=True,max_len=1000)
+        if not ok:
+            return False, msg
 
-        if not participant_ids:
-            return False, "At least one participant is required"
-
-        if start_time < datetime.now():
-            return False, "Meeting cannot be scheduled in the past"
+        ok,location,msg=self.clean_str(location,"Location",allow_empty=True,max_len=100)
+        if not ok:
+            return False, msg
 
         if end_time<=start_time:
             return False,"End time must be after start time"
 
+        if start_time< datetime.now():
+            return False, "Meeting cannot be scheduled in the past"
+
         try:
             #check conflicts
-            conflicts=self.check_conflicts(
-                participant_ids,
-                start_time,
-                end_time
-            )
+            ok,conflicts,msg=self.check_conflicts(participant_ids,start_time,end_time)
+            if not ok:
+                return False, msg
 
             if conflicts:
                unique_names={person_name for person_id,person_name in conflicts}
@@ -389,9 +359,12 @@ class DatabaseManager:
             self.connection.commit()
             return True, "Meeting scheduled successfully"
 
-        except Exception as e:
+        except Error as e:
             self.connection.rollback()
             return False, f"Database error: {str(e)}"
+        except Exception as e:
+            self.connection.rollback()
+            return False, f"Unexpected error: {e}"
 
 
     def get_meetings_in_interval(self, start_time, end_time):
@@ -402,20 +375,34 @@ class DatabaseManager:
         if not self.is_connected:
             return False, "No database connection"
 
-        query="""
-            SELECT
-                m.title,m.description,m.start_time,m.end_time,m.location, STRING_AGG(p.name,', ') AS participants
-            FROM meetings m JOIN meeting_participants mp ON m.meeting_id = mp.meeting_id
-                JOIN persons p ON mp.person_id = p.person_id
-            WHERE start_time >= %s AND end_time <= %s GROUP BY m.meeting_id ORDER BY start_time;
-        """
+        if end_time<=start_time:
+            return False, "End time must be after start time"
 
-        self.cursor.execute(query,(start_time,end_time))
-        results= self.cursor.fetchall()
-        return results
+        try:
+            query="""
+                SELECT
+                    m.title,
+                    m.description,
+                    m.start_time,
+                    m.end_time,
+                    m.location, 
+                    STRING_AGG(p.name,', ') AS participants
+                FROM meetings m JOIN meeting_participants mp ON m.meeting_id = mp.meeting_id
+                    JOIN persons p ON mp.person_id = p.person_id
+                WHERE start_time >= %s AND end_time <= %s GROUP BY m.meeting_id ORDER BY start_time;
+            """
+
+            self.cursor.execute(query,(start_time,end_time))
+            results= self.cursor.fetchall()
+            return True, results
+        except Error as e:
+            return False,  f"Database error: {str(e)}"
+        except Exception as e:
+            return False, f"Unexpected error: {str(e)}"
 
 
     #EXPORT MEETINGS PART
+    @staticmethod
     def export_meetings_to_file(self,meetings,file_path):
         """
         Export meetings to ics file
@@ -490,6 +477,7 @@ class DatabaseManager:
 
         return result
 
+    @staticmethod
     def extract_participants(self, description):
         """
         Extract participants from description
@@ -521,6 +509,7 @@ class DatabaseManager:
 
         return []
 
+    @staticmethod
     def remove_participants_description(self,description):
         """
         Remove participants from description when importing
@@ -616,3 +605,56 @@ class DatabaseManager:
         except Exception as e:
             self.connection.rollback()
             return False, f"Import failed: {str(e)}"
+
+    @staticmethod
+    def clean_str(self,s,field,allow_empty=False,max_len=None):
+        s="" if s is None else str(s).strip()
+
+        if not allow_empty and s=="":
+            return False,"",f"{field} is required"
+
+        if max_len is not None and len(s)>max_len:
+            return False,"",f"{field} must be less than {max_len} characters long"
+
+        return True,s,""
+
+    def validate_name(self,name):
+        ok,name,msg=self.clean_str(name,"Name",allow_empty=False,max_len=100)
+        if not ok:
+            return False,msg
+
+        if len(name)<2:
+            return False,"Name must be at least 2 characters"
+
+        return True,name
+
+    def validate_email(self,email):
+        ok,email,msg=self.clean_str(email,"Email",allow_empty=False,max_len=100)
+        if not ok:
+            return False,msg
+
+        email=email.lower()
+        if email.count("@")!=1:
+            return False,"Invalid email address"
+
+        part1,part2=email.split("@")
+        if part1=="" or part2=="":
+            return False,"Invalid email address"
+
+        if "." not in part2 or part2.startswith(".") or part2.endswith("."):
+            return False,"Invalid email address"
+
+        return True,email
+
+    @staticmethod
+    def validate_phone(self,phone):
+        if phone is None or str(phone).strip()=="":
+            return True, None
+
+        phone=str(phone).strip()
+
+        if len(phone)>10:
+            return False,"Phone must be at least 10 characters"
+
+        return True,phone
+
