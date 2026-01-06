@@ -7,10 +7,22 @@ from fonts import FONT_NORMAL, FONT_TITLE
 
 class ViewMeetingsPage:
     """
-    GUI for displaying meetings in an interval
+    GUI for viewing, exporting and importing meetings
+
+    This page allows the user to:
+        - Search meetings in the db within a given time interval
+        - Display meetings
+        - Export selected meetings to .ics file
+        - Import meetings from .ics file into db
     """
 
     def __init__(self, parent, db,show_menu):
+        """
+        Initializes the page
+
+        Returns:
+            None
+        """
         self.db=db
         self.show_menu=show_menu
         self.frame=tk.Frame(parent)
@@ -27,6 +39,7 @@ class ViewMeetingsPage:
             font=FONT_NORMAL
         )
 
+        #Back button
         tk.Button(
             self.frame,
             text="Back",
@@ -34,13 +47,14 @@ class ViewMeetingsPage:
             command=self.show_menu
         ).pack(anchor="w",pady=5)
 
+        #Page Title
         tk.Label(
             self.frame,
             text="View Meetings",
             font=FONT_TITLE
         ).pack(pady=10)
 
-        #interval
+        #start interval input
         tk.Label(
             self.frame,
             text="Start (DD-MM-YYYY HH:MM)",
@@ -54,6 +68,7 @@ class ViewMeetingsPage:
         )
         self.start_entry.pack(pady=3)
 
+        #end interval input
         tk.Label(
             self.frame,
             text="End (DD-MM-YYYY HH:MM)",
@@ -94,7 +109,7 @@ class ViewMeetingsPage:
             width=25
         ).pack(pady=5)
 
-        #table for showing details about meetings in interval
+        #table used to display meetings
         columns = ("title","description", "start", "end", "location", "participants")
         self.tree = ttk.Treeview(
             self.frame,
@@ -104,6 +119,7 @@ class ViewMeetingsPage:
             selectmode="extended" #for selecting multiple meetings
         )
 
+        #headings
         self.tree.heading("title", text="Title")
         self.tree.heading("description", text="Description")
         self.tree.heading("start", text="Start")
@@ -116,18 +132,34 @@ class ViewMeetingsPage:
     def show(self):
         """
         Show view meetings page
+
+        Returns:
+            None
         """
         self.frame.pack(fill="both", expand=True, padx=20, pady=20)
 
     def hide(self):
         """
         Hide view meetings page
+
+        Returns:
+            None
         """
         self.frame.pack_forget()
 
     def search(self):
         """
-        Search meetings in a given interval function
+        Search meetings in a given interval function and display them in the table
+
+        Steps:
+            -Clears current Treeview rows
+            -Parses and validates start/end datetime format (DD-MM-YYYY HH:MM)
+            -Ensures end > start
+            -Calls db.get_meetings_in_interval(start, end)
+            -Displays meetings in the Treeview
+
+        Returns:
+            None
         """
         #clear table
         for row in self.tree.get_children():
@@ -143,6 +175,7 @@ class ViewMeetingsPage:
             )
             return
 
+        #validate interval order
         if end<=start:
             messagebox.showerror(
                 "Error",
@@ -150,8 +183,13 @@ class ViewMeetingsPage:
             )
             return
 
-        meetings=self.db.get_meetings_in_interval(start, end)
+        #get meetings from db
+        ok,meetings=self.db.get_meetings_in_interval(start, end)
+        if not ok:
+            messagebox.showerror("Error", meetings)
+            return
 
+        #handle empty results
         if not meetings:
             messagebox.showerror(
                 "No results",
@@ -159,6 +197,7 @@ class ViewMeetingsPage:
             )
             return
 
+        #insert rows into table
         for title, description, start_t, end_t, location , participants in meetings:
             start_str = start_t.strftime("%d-%m-%Y %H:%M")
             end_str = end_t.strftime("%d-%m-%Y %H:%M")
@@ -171,7 +210,17 @@ class ViewMeetingsPage:
 
     def export_meetings(self):
         """
-        Export meetings to ics file
+        Export selected meetings from the table to .ics file
+
+        Steps:
+            -Check if any meetings are selected in the Treeview
+            -Ask user for a save location
+            -Convert selected table rows into meeting tuples
+            -Call db.export_meetings_to_file(meetings_to_export, file_path)
+            -Display success/error feedback message
+
+        Returns:
+            None
         """
 
         selected_items=self.tree.selection()
@@ -215,7 +264,15 @@ class ViewMeetingsPage:
 
     def import_meetings(self):
         """
-        import meetings from ics file
+        import meetings from ics file into the db
+
+        Steps:
+            -Ask user to select an ICS file
+            -Call db.import_meetings_from_file(file_path)
+            -Display success/error message
+
+        Returns:
+            None
         """
         file_path = filedialog.askopenfilename(
             title="Import meetings",

@@ -16,6 +16,9 @@ class DatabaseManager:
     def __init__(self):
         """
         Initialize database manager
+
+        Returns:
+            None
         """
         self.connection = None
         self.cursor = None
@@ -26,7 +29,7 @@ class DatabaseManager:
         Connect to database
 
         Returns:
-            tuple (bool, str): success flag and message
+            (bool, str): success flag and message
         """
         try:
             #if connection already exists
@@ -63,7 +66,9 @@ class DatabaseManager:
         """
         Create database tables using schema.sql or fallback SQL
 
-        Return: tuple (bool, str)
+        Return: tuple (bool, str):
+            - True and success message if tables created
+            - False and error message on failure
         """
         if not self.is_connected:
             return False, "No active database connection"
@@ -132,6 +137,8 @@ class DatabaseManager:
         Verify existence of required tables
 
         Returns: tuple (bool, dict | str)
+            - True and dict {"persons": True, ...}
+            - False and error message on failure
         """
         if not self.is_connected:
             return False, "No database connection"
@@ -164,6 +171,8 @@ class DatabaseManager:
     def get_connection_status(self):
         """
         Return connection status information
+        Returns:
+            dict
         """
         if not self.connection:
             return {"connected": False, "status": "No connection"}
@@ -184,6 +193,10 @@ class DatabaseManager:
     def close(self):
         """
         Close database connection
+        Returns:
+            (bool, str):
+                - True and message if closed successfully
+                - False and error message on failure
         """
         try:
             if self.cursor:
@@ -211,8 +224,13 @@ class DatabaseManager:
 
     def add_person(self, name, email, phone=None):
         """
-        Adds a new person to the database
-        return: tuple: (success: bool, message: str)
+        Adds a new person to the database with input validation
+        and duplicate email prevention
+
+        Returns:
+            (bool, str):
+                - True and message if added successfully
+                - False and error message on failure
         """
 
         if not self.is_connected:
@@ -260,7 +278,9 @@ class DatabaseManager:
 
     def get_all_persons(self):
         """
-        Return all persons in the database (for selecting them)
+        Fetch all persons from GUI selection (person_id, name)
+        Returns:
+            list[(int,str)]
         """
         if not self.is_connected:
             return False, "No database connection"
@@ -271,7 +291,13 @@ class DatabaseManager:
 
     def check_conflicts(self,participant_ids,start_time,end_time):
         """
-        Checks for overlapping meetings between participants
+        Checks for overlapping meetings for a list of participants
+
+        Returns:
+            (bool,list,str):
+                -(True,conflicts,"") on success
+                conflicts - list of tuples [(person_id, name),...]
+                -(False,[],error_msg) on failure
         """
         if not self.is_connected:
             return False,[], "No database connection"
@@ -303,7 +329,12 @@ class DatabaseManager:
 
     def add_meeting(self,title,description, start_time,end_time,location,participant_ids):
         """
-        Creates new meeting
+        Creates new meeting, validate input, check conflicts, and store participants
+
+        Returns:
+            (bool, str):
+                - True and success msg if meeting created
+                - False and error message on failure
         """
         if not self.is_connected:
             return False, "No database connection"
@@ -370,6 +401,15 @@ class DatabaseManager:
     def get_meetings_in_interval(self, start_time, end_time):
         """
         Return all meetings in the interval
+
+        Returns:
+            (bool,list|str):
+                - True and a list of meetings:
+                    [
+                        (title,description,start_time,end_time,location,participants),
+                        ...
+                    ]
+                - False and error msg on failure
         """
 
         if not self.is_connected:
@@ -402,10 +442,14 @@ class DatabaseManager:
 
 
     #EXPORT MEETINGS PART
-    @staticmethod
     def export_meetings_to_file(self,meetings,file_path):
         """
         Export meetings to ics file
+
+        Returns:
+            (bool,str):
+                - True and success msg on success
+                - False and error message on failure
         """
 
         if not meetings:
@@ -442,7 +486,12 @@ class DatabaseManager:
     #IMPORT MEETINGS PART
     def get_person_id_by_name(self,names):
         """
-        return a dict {name: person_id} for the names list
+        Map a list of participant names to person_ids from the db
+
+        Returns:
+            dict:
+                A dict mapping lowercase_name -> person_id
+                Returns {} if not connected or names list is empty
         """
 
         if not self.is_connected:
@@ -477,11 +526,14 @@ class DatabaseManager:
 
         return result
 
-    @staticmethod
     def extract_participants(self, description):
         """
-        Extract participants from description
-        returns: list[str]
+        Extract participants from meeting description
+
+        Returns:
+            list[str]:
+                - List of participants names found after "Participants:"
+                - [] if none found
         """
         if not description:
             return []
@@ -509,10 +561,14 @@ class DatabaseManager:
 
         return []
 
-    @staticmethod
     def remove_participants_description(self,description):
         """
-        Remove participants from description when importing
+        Remove "Participants:" line from description when importing
+
+        Returns:
+            str:
+                Description without "Participants: line
+                "" if description is empty
         """
         if not description:
             return ""
@@ -531,6 +587,11 @@ class DatabaseManager:
     def import_meetings_from_file(self,file_path):
         """
         Import meetings from ics file and insert in db
+
+        Returns:
+            (bool,str):
+                - True and success msg with imported count
+                - False and error msg on failure
         """
 
         if not self.is_connected:
@@ -606,8 +667,21 @@ class DatabaseManager:
             self.connection.rollback()
             return False, f"Import failed: {str(e)}"
 
-    @staticmethod
+
     def clean_str(self,s,field,allow_empty=False,max_len=None):
+        """
+        String cleaning function and validator:
+            - converts None -> ""
+            -strips whitespace
+            -check empty constraint
+            - check max length constraint
+
+        Returns:
+            (bool,str,str):
+                - success flag
+                - cleaned string
+                - error msg ("" if success)
+        """
         s="" if s is None else str(s).strip()
 
         if not allow_empty and s=="":
@@ -619,6 +693,14 @@ class DatabaseManager:
         return True,s,""
 
     def validate_name(self,name):
+        """
+        Validate a person name
+
+        Returns:
+            (bool,str):
+                - True and cleand name if valid
+                - False and error msg if invalid
+        """
         ok,name,msg=self.clean_str(name,"Name",allow_empty=False,max_len=100)
         if not ok:
             return False,msg
@@ -629,6 +711,14 @@ class DatabaseManager:
         return True,name
 
     def validate_email(self,email):
+        """
+        Validate email address
+
+        Returns:
+            (bool,str):
+                - True and lowercase email if valid
+                - False and error msg if invalid
+        """
         ok,email,msg=self.clean_str(email,"Email",allow_empty=False,max_len=100)
         if not ok:
             return False,msg
@@ -646,8 +736,16 @@ class DatabaseManager:
 
         return True,email
 
-    @staticmethod
+
     def validate_phone(self,phone):
+        """
+        Validate phone number
+
+        Returns:
+            (bool,str):
+                - True and clean phone (or None) if valid
+                - False and error msg if invalid
+        """
         if phone is None or str(phone).strip()=="":
             return True, None
 

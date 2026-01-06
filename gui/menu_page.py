@@ -6,12 +6,24 @@ from fonts import FONT_NORMAL, FONT_TITLE
 class MenuPage:
     """
     Main menu page of the application
+
+    It provides buttons that allow the user to navigate to:
+        - Add Person page
+        - Schedule Meeting page
+        - View Meetings page
+        - Exit the application
     """
 
     def __init__(self, parent, show_person, show_meeting,show_view_meetings_interval, exit_app):
         self.frame = tk.Frame(parent)
+        """
+        Initialize the main menu
+        
+        Returns:
+            None
+        """
 
-        #title
+        # app title
         tk.Label(
             self.frame,
             text="Meeting Scheduler",
@@ -69,12 +81,18 @@ class MenuPage:
 
     def show(self):
         """
-        Show menu page
+        Display the main menu page
+
+        Returns:
+            None
         """
         self.frame.pack(fill="both", expand=True)
 
     def hide(self):
         """
-        Hide menu page
+        Hide the main menu page
+
+        Returns:
+            None
         """
         self.frame.pack_forget()

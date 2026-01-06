@@ -10,6 +10,15 @@ from gui.view_meetings_page import ViewMeetingsPage
 
 
 def main():
+    """
+    Entry point of the application
+
+    The application uses a single container frame and switches
+    between pages by showing/hiding frames
+
+    Returns:
+        None
+    """
     #connect to database
     db = DatabaseManager()
     success, message = db.connect(**DEFAULT_CONFIG)
@@ -17,11 +26,15 @@ def main():
     if not success:
         messagebox.showerror("Database Error", message)
         return
+    else:
+        print("Database connection established")
 
+    #initialize main app window
     root = tk.Tk()
     root.title("Meeting Scheduler")
     root.geometry("500x700")
 
+    #container for all pages
     container = tk.Frame(root)
     container.pack(fill="both", expand=True)
 
@@ -32,6 +45,14 @@ def main():
 
     #function to hide all pages
     def hide_all_pages():
+        """
+        Hide all app pages
+        Helper function which ensures that only one page
+        is visible at a time
+
+        Returns:
+            None
+        """
         if menu_page:
             menu_page.hide()
         if person_form:
@@ -42,22 +63,46 @@ def main():
             view_meetings_page.hide()
 
     def show_menu():
+        """
+        Display menu page
+
+        Returns:
+            None
+        """
         hide_all_pages()
         menu_page.show()
 
     def show_person():
+        """
+        Display person page
+
+        Returns:
+            None
+        """
         hide_all_pages()
         person_form.show()
 
     def show_meeting():
+        """
+        Display meeting page
+
+        Returns:
+            None
+        """
         hide_all_pages()
         meeting_form.show()
 
     def show_view_meetings_interval():
+        """
+        Display view meetings interval page
+
+        Returns:
+            None
+        """
         hide_all_pages()
         view_meetings_page.show()
 
-    #pages
+    #initialize pages
     person_form = PersonForm(container, db, show_menu)
     meeting_form= MeetingForm(container, db, show_menu)
     view_meetings_page = ViewMeetingsPage(container, db, show_menu)
@@ -70,6 +115,7 @@ def main():
         exit_app=root.destroy
     )
 
+    #show main menu initially
     show_menu()
     root.mainloop()
 
