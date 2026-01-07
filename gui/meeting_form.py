@@ -74,7 +74,13 @@ class MeetingForm:
 
         #A mapping form name -> person_id
         self.person_map = {}
-        for pid, name in self.db.get_all_persons():
+
+        ok, persons = self.db.get_all_persons()
+        if not ok:
+            messagebox.showerror("Error", persons)
+            persons = []
+
+        for pid, name in persons:
             self.person_map[name] = pid
             self.participants.insert(tk.END, name)
 

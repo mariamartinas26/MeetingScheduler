@@ -280,14 +280,18 @@ class DatabaseManager:
         """
         Fetch all persons from GUI selection (person_id, name)
         Returns:
-            list[(int,str)]
+            -True, list[(int,str)]
+            -False, msg
         """
         if not self.is_connected:
             return False, "No database connection"
-        self.cursor.execute(
-                "SELECT person_id,name FROM persons ORDER BY name;"
-        )
-        return self.cursor.fetchall()
+        try:
+            self.cursor.execute(
+                    "SELECT person_id,name FROM persons ORDER BY name;"
+            )
+            return True,self.cursor.fetchall()
+        except Error as e:
+            return False, f"Database error: {e}"
 
     def check_conflicts(self,participant_ids,start_time,end_time):
         """
@@ -339,6 +343,35 @@ class DatabaseManager:
         if not self.is_connected:
             return False, "No database connection"
 
+        #validation for at least 1 participant
+        if not participant_ids:
+            return False, "At least one participant is required"
+
+        #check if ids are integers and positive
+        ids=[]
+        for id in participant_ids:
+            try:
+                id_new=int(id)
+                if id_new<=0:
+                    return False, "Invalid participant ID"
+                ids.append(id_new)
+            except Exception:
+                return False, "Invalid participant ID"
+
+        #check if participant ids exist in db
+        self.cursor.execute(
+            "SELECT person_id FROM persons WHERE person_id=ANY(%s::int[]);",
+            (participant_ids,)
+        )
+        existing= {row[0] for row in self.cursor.fetchall()}
+        missing= sorted(set(participant_ids) - existing)
+        if missing:
+            return False, f"Some participants do not exist in db: {missing}"
+
+
+        #sorted+unique list of participants
+        participant_ids=sorted(set(ids))
+
         ok,title,msg=self.clean_str(title,"Title",allow_empty=False,max_len=100)
         if not ok:
             return False, msg
@@ -350,6 +383,9 @@ class DatabaseManager:
         ok,location,msg=self.clean_str(location,"Location",allow_empty=True,max_len=100)
         if not ok:
             return False, msg
+
+        if not isinstance(start_time,datetime) or not isinstance(end_time,datetime):
+            return False,"Start and end times must be datetime values"
 
         if end_time<=start_time:
             return False,"End time must be after start time"
@@ -415,6 +451,9 @@ class DatabaseManager:
         if not self.is_connected:
             return False, "No database connection"
 
+        if not isinstance(start_time,datetime) or not isinstance(end_time,datetime):
+            return False, "Start and end times must be datetime values"
+
         if end_time<=start_time:
             return False, "End time must be after start time"
 
@@ -451,9 +490,17 @@ class DatabaseManager:
                 - True and success msg on success
                 - False and error message on failure
         """
+        if not self.is_connected:
+            return False, "No database connection"
 
         if not meetings:
             return False, "No meetings"
+
+        #file_path validations
+        if not file_path:
+            return False, "No export file selected"
+        if not file_path.lower().endswith(".ics"):
+            return False, "File must be .ics file"
 
         try:
             #create calendar
@@ -597,6 +644,13 @@ class DatabaseManager:
         if not self.is_connected:
             return False, "No database connection"
 
+        #validations for file_path
+        if not file_path:
+            return False,"No file selected"
+        if not file_path.lower().endswith(".ics"):
+            return False, "Invalid file type. Select .ics file"
+        if not os.path.exists(file_path):
+            return False, "File not found"
 
         try:
             with open(file_path, "rb") as f:
@@ -752,7 +806,7 @@ class DatabaseManager:
         phone=str(phone).strip()
 
         if len(phone)>10:
-            return False,"Phone must be at least 10 characters"
+            return False,"Phone must be at most 10 characters"
 
         return True,phone
 
