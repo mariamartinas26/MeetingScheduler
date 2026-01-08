@@ -93,6 +93,7 @@ class PersonForm:
         Returns:
             None
         """
+        # read what user entered
         name = self.name_entry.get()
         email = self.email_entry.get()
         phone = self.phone_entry.get()

@@ -324,9 +324,9 @@ class DatabaseManager:
 
         #check if ids are integers and positive
         ids=[]
-        for id in participant_ids:
+        for participant_id in participant_ids:
             try:
-                id_new=int(id)
+                id_new=int(participant_id)
                 if id_new<=0:
                     return False, "Invalid participant ID"
                 ids.append(id_new)
@@ -413,6 +413,7 @@ class DatabaseManager:
     def meeting_exists(self,title,start_time,end_time,location,participant_ids):
         """
         Checks if a meeting already exists in db with same fields and participants
+        Used when importing in order not to insert a meeting multiple times
 
         Returns:
             bool
@@ -421,11 +422,10 @@ class DatabaseManager:
             return False
 
         ids=[]
-        for id in participant_ids:
-            ids.append(int(id))
+        for participant_id in participant_ids:
+            ids.append(int(participant_id))
 
         ids=sorted(set(ids))
-        ids.sort()
 
         self.cursor.execute(
             """
@@ -452,7 +452,7 @@ class DatabaseManager:
 
     def get_meetings_in_interval(self, start_time, end_time):
         """
-        Return all meetings in the interval
+        Return all meetings in selected interval
 
         Returns:
             (bool,list|str):
@@ -692,9 +692,11 @@ class DatabaseManager:
                 if not dtstart_obj or not dtend_obj:
                     continue
 
+                # convert to datetime object
                 start_dt=dtstart_obj.dt
                 end_dt=dtend_obj.dt
 
+                #remove tzinfo and convert to local time
                 if start_dt.tzinfo is not None:
                     start_dt = start_dt.astimezone().replace(tzinfo=None)
                 if end_dt.tzinfo is not None:
@@ -711,6 +713,8 @@ class DatabaseManager:
 
                 new_description=self.remove_participants_description(description)
 
+                # create the list of participant ids from their names
+                # for inserting in db
                 name_to_id =self.get_person_id_by_name(participant_names)
                 participant_ids=[]
 
@@ -777,6 +781,11 @@ class DatabaseManager:
         """
         Validate a person name
 
+        Rules:
+            - Required field
+            - min length 2
+            - max length 100
+
         Returns:
             (bool,str):
                 - True and cleand name if valid
@@ -794,6 +803,10 @@ class DatabaseManager:
     def validate_email(self,email):
         """
         Validate email address
+
+        Rules:
+            - Required field
+            - Must contain one @
 
         Returns:
             (bool,str):
@@ -821,6 +834,10 @@ class DatabaseManager:
     def validate_phone(self,phone):
         """
         Validate phone number
+
+        Rules:
+            - Optional field
+            - Max length 10
 
         Returns:
             (bool,str):

@@ -15,13 +15,13 @@ class MenuPage:
     """
 
     def __init__(self, parent, show_person, show_meeting,show_view_meetings_interval, exit_app):
-        self.frame = tk.Frame(parent)
         """
         Initialize the main menu
-        
-        Returns:
-            None
+
+            Returns:
+                 None
         """
+        self.frame = tk.Frame(parent)
 
         # app title
         tk.Label(

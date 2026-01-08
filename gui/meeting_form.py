@@ -165,7 +165,8 @@ class MeetingForm:
             )
             return
 
-        #validate participants selection
+        # validate participants selection
+        # return selected indices
         selected = self.participants.curselection()
         if not selected:
             messagebox.showerror(

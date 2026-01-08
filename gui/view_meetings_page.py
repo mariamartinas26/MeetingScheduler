@@ -166,6 +166,7 @@ class ViewMeetingsPage:
             self.tree.delete(row)
 
         try:
+            #convert text to datetime object
             start=datetime.strptime(self.start_entry.get(), "%d-%m-%Y %H:%M")
             end=datetime.strptime(self.end_entry.get(), "%d-%m-%Y %H:%M")
         except ValueError:
@@ -199,6 +200,7 @@ class ViewMeetingsPage:
 
         #insert rows into table
         for title, description, start_t, end_t, location , participants in meetings:
+            #transform from datetime to string
             start_str = start_t.strftime("%d-%m-%Y %H:%M")
             end_str = end_t.strftime("%d-%m-%Y %H:%M")
             self.tree.insert(
