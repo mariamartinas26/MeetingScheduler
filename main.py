@@ -32,7 +32,7 @@ def main():
     #initialize main app window
     root = tk.Tk()
     root.title("Meeting Scheduler")
-    root.geometry("500x700")
+    root.geometry("500x800")
 
     #container for all pages
     container = tk.Frame(root)

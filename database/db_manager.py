@@ -168,31 +168,10 @@ class DatabaseManager:
         except Exception as e:
             return False, f"Unexpected error: {e}"
 
-    def get_connection_status(self):
-        """
-        Return connection status information
-        Returns:
-            dict
-        """
-        if not self.connection:
-            return {"connected": False, "status": "No connection"}
-
-        try:
-            self.cursor.execute("SELECT 1;")
-            return {
-                "connected": True,
-                "status": "Active",
-                "database": self.connection.info.dbname,
-                "user": self.connection.info.user,
-                "host": self.connection.info.host,
-                "port": self.connection.info.port
-            }
-        except Exception:
-            return {"connected": False, "status": "Connection lost"}
-
     def close(self):
         """
         Close database connection
+
         Returns:
             (bool, str):
                 - True and message if closed successfully
@@ -213,14 +192,6 @@ class DatabaseManager:
         except Error as e:
             return False, f"Error closing connection: {e}"
 
-    def __del__(self):
-        """
-        Destructor
-        """
-        try:
-            self.close()
-        except Exception:
-            pass
 
     def add_person(self, name, email, phone=None):
         """
@@ -236,23 +207,26 @@ class DatabaseManager:
         if not self.is_connected:
             return False, "No database connection"
 
+        #name validation
         ok,response=self.validate_name(name)
         if not ok:
             return False, response
         name=response
 
+        #email validation
         ok, response = self.validate_email(email)
         if not ok:
             return False, response
         email=response
 
+        #phone validation
         ok, response = self.validate_phone(phone)
         if not ok:
             return False, response
         phone=response
 
         try:
-            #duplicate emails
+            # check for duplicate emails
             self.cursor.execute(
                 "SELECT 1 FROM persons WHERE email = %s;",
                 (email,)
@@ -279,6 +253,7 @@ class DatabaseManager:
     def get_all_persons(self):
         """
         Fetch all persons from GUI selection (person_id, name)
+
         Returns:
             -True, list[(int,str)]
             -False, msg
@@ -407,7 +382,8 @@ class DatabaseManager:
             #Insert meeting
             self.cursor.execute(
                 """
-                INSERT INTO meetings (title, description, start_time, end_time, location)
+                INSERT INTO meetings
+                    (title, description, start_time, end_time, location)
                     VALUES (%s,%s,%s,%s,%s) RETURNING meeting_id;
                 """, (title, description, start_time, end_time, location)
             )
@@ -432,6 +408,46 @@ class DatabaseManager:
         except Exception as e:
             self.connection.rollback()
             return False, f"Unexpected error: {e}"
+
+
+    def meeting_exists(self,title,start_time,end_time,location,participant_ids):
+        """
+        Checks if a meeting already exists in db with same fields and participants
+
+        Returns:
+            bool
+        """
+        if not self.is_connected:
+            return False
+
+        ids=[]
+        for id in participant_ids:
+            ids.append(int(id))
+
+        ids=sorted(set(ids))
+        ids.sort()
+
+        self.cursor.execute(
+            """
+            SELECT m.meeting_id FROM meetings m 
+            WHERE m.title=%s 
+                AND m.start_time=%s 
+                AND m.end_time=%s
+                AND COALESCE(m.location,'')=COALESCE(%s,'')
+            """,
+            (title,start_time,end_time,location)
+        )
+        row=self.cursor.fetchone()
+        if not row:
+            return False
+        meeting_id=row[0]
+
+        self.cursor.execute(
+            "SELECT person_id FROM meeting_participants WHERE meeting_id=%s",
+            (meeting_id,)
+        )
+        existing_ids=sorted({r[0] for r in self.cursor.fetchall()})
+        return existing_ids==ids
 
 
     def get_meetings_in_interval(self, start_time, end_time):
@@ -466,9 +482,11 @@ class DatabaseManager:
                     m.end_time,
                     m.location, 
                     STRING_AGG(p.name,', ') AS participants
-                FROM meetings m JOIN meeting_participants mp ON m.meeting_id = mp.meeting_id
+                FROM meetings m JOIN 
+                     meeting_participants mp ON m.meeting_id = mp.meeting_id
                     JOIN persons p ON mp.person_id = p.person_id
-                WHERE start_time >= %s AND end_time <= %s GROUP BY m.meeting_id ORDER BY start_time;
+                WHERE start_time >= %s AND end_time <= %s
+                GROUP BY m.meeting_id ORDER BY start_time;
             """
 
             self.cursor.execute(query,(start_time,end_time))
@@ -494,20 +512,21 @@ class DatabaseManager:
             return False, "No database connection"
 
         if not meetings:
-            return False, "No meetings"
+            return False, "No meetings to export"
 
-        #file_path validations
+        # file_path validations
         if not file_path:
             return False, "No export file selected"
         if not file_path.lower().endswith(".ics"):
             return False, "File must be .ics file"
 
         try:
-            #create calendar
+            # create calendar
             cal=Calendar()
             cal.add("prodid", "-//Meeting Scheduler//EN")
             cal.add("version", "2.0")
 
+            # for every meeting create an VEVENT
             for title,description,start_time,end_time,location,participants in meetings:
                 event = Event()
                 event.add("uid", f"{uuid.uuid4()}@meeting-scheduler")
@@ -520,7 +539,7 @@ class DatabaseManager:
 
                 cal.add_component(event)
 
-            #write calendar to file
+            #write calendar to .ics file
             with open(file_path, "wb") as f:
                 f.write(cal.to_ical())
 
@@ -654,19 +673,22 @@ class DatabaseManager:
 
         try:
             with open(file_path, "rb") as f:
+                #transform text in Calendar object
                 cal = Calendar.from_ical(f.read())
 
             imported = 0
             for component in cal.walk():
+                #if component is not an event skip it
                 if component.name != "VEVENT":
                     continue
 
+                #extract fields
                 title =str(component.get("summary", "")).strip()
                 description =str(component.get("description", "")).strip()
                 location =str(component.get("location", "")).strip()
-
                 dtstart_obj=component.get("dtstart")
                 dtend_obj=component.get("dtend")
+
                 if not dtstart_obj or not dtend_obj:
                     continue
 
@@ -674,20 +696,21 @@ class DatabaseManager:
                 end_dt=dtend_obj.dt
 
                 if start_dt.tzinfo is not None:
-                    start_dt=start_dt.replace(tzinfo=None)
+                    start_dt = start_dt.astimezone().replace(tzinfo=None)
                 if end_dt.tzinfo is not None:
-                    end_dt=end_dt.replace(tzinfo=None)
+                    end_dt = end_dt.astimezone().replace(tzinfo=None)
 
                 if end_dt <= start_dt:
                     return False, f"Invalid time interval for {title}"
 
-
+                #extract participants from description
                 participant_names=self.extract_participants(description)
                 #added validation
                 if not participant_names:
                     return False,f"Event {title} has not participants. Add participants"
 
                 new_description=self.remove_participants_description(description)
+
                 name_to_id =self.get_person_id_by_name(participant_names)
                 participant_ids=[]
 
@@ -696,10 +719,14 @@ class DatabaseManager:
                     if person_id:
                         participant_ids.append(person_id)
 
-                #added validation
+                # added validation
                 if not participant_ids:
                     return False,f"Participants for {title} do not exist in database"
 
+                # skip duplicate meetings
+                # for not importing them multiple times
+                if self.meeting_exists(title,start_dt,end_dt,location,participant_ids):
+                    continue
 
                 success, message = self.add_meeting(
                     title=title,

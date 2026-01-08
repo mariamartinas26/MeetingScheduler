@@ -67,22 +67,13 @@ class MeetingForm:
         self.end_entry = tk.Entry(self.frame, width=40, font=FONT_NORMAL)
         self.end_entry.pack(pady=5)
 
+        # A mapping form name -> person_id
+        self.person_map = {}
+
         #Participants list
         tk.Label(self.frame, text="Participants", font=FONT_NORMAL).pack(anchor="w")
         self.participants = tk.Listbox(self.frame, selectmode=tk.MULTIPLE, width=40, height=7,font=FONT_NORMAL)
         self.participants.pack(pady=5)
-
-        #A mapping form name -> person_id
-        self.person_map = {}
-
-        ok, persons = self.db.get_all_persons()
-        if not ok:
-            messagebox.showerror("Error", persons)
-            persons = []
-
-        for pid, name in persons:
-            self.person_map[name] = pid
-            self.participants.insert(tk.END, name)
 
         #Submit button
         tk.Button(
@@ -96,13 +87,27 @@ class MeetingForm:
         ).pack(pady=15)
 
 
+    def load_persons(self):
+        self.participants.delete(0, tk.END)
+        self.person_map = {}
+
+        ok,persons=self.db.get_all_persons()
+        if not ok:
+            messagebox.showerror("Error", persons)
+            return
+
+        for pid,name in persons:
+            self.person_map[name] = pid
+            self.participants.insert(tk.END, name)
+
     def show(self):
         """
-        Display the meeting form
+        Display the meeting form and refresh the list of persons
 
         Returns:
             None
         """
+        self.load_persons() #refresh persons list
         self.frame.pack(fill="both", expand=True, padx=20, pady=20)
 
     def hide(self):
